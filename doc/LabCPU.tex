@@ -1,0 +1,163 @@
+%\documentclass[fleqn, envcountsame, runningheads,10pt,a4paper]{llncs}
+\documentclass[10pt]{article}
+
+%\usepackage{ngerman}
+\usepackage[latin1]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath,amssymb,amstext}
+
+\usepackage{color}
+\definecolor{green}{rgb}{0,0.5,0}
+\definecolor{orange}{rgb}{1,0.5,0}
+%\setcounter{secnumdepth}{3}
+
+
+	\title{ \huge{LabCPU} \\[0.1em] \normalsize{A Simple Stack-based LabView CPU} }
+	\author{\small{Mathias Hörtnagl} \\ \small{\texttt{mathias.hoertnagl@gmail.com}}}
+	\date{}
+	%\subtitle{A Simple Stack-based LabView CPU}
+	%\author{Mathias Hörtnagl \\ \small{\texttt{mathias.hoertnagl@student.uibk.ac.at}}}
+	%\authorrunning{LabCPU}
+	%\institute{University of Innsbruck}
+	%\date{\today}
+
+\begin{document}
+
+	\maketitle	
+	\newpage
+	
+	\tableofcontents
+	\newpage
+	
+	\section{Introduction}
+		LabCPU is a simple stack machine which executes assembly code without compilation immediatly. It supports 26 instructions 
+		and offers a special commands to set and read the pixels of a virtual display. The source code layout is very limited in order to 
+		keep the file processing simple.
+		
+		
+	\section{Recognized Instructions}
+		LabCPU supports a pretty limited number of case-insensitive instructions. Some of them are accompanied by a single 
+		argument (\texttt{<num>, <addr, ><label>, <0|1>}). To ease the definition of the instructions, let <x> be the top, <y> be the 
+		second element on the stack and let <z> be the new top element after executing a command. 
+		
+		\subsection{Stack Operations}
+			\begin{description}
+				\item [\texttt{PSH <num>}] \hfill \\
+					Push a number \texttt{<num>} onto the stack. The number can be either represented as a decimal or hexadecimal one.
+					The prefix '0x' indicates a hexadecimal number. 
+					\begin{quote}
+						\texttt{\textcolor{blue}{PSH} \textcolor{orange}{2011}} \\
+						\texttt{\textcolor{blue}{PSH} \textcolor{orange}{0x7DB}}
+					\end{quote}
+					In each case the top stack element is 2011. \\
+															
+				\item [\texttt{POP}] \hfill \\
+					Pop top element off the stack.
+					
+				\item [\texttt{CPY}] \hfill \\
+					Copy top stack element and push it onto the stack.
+					
+				\item [\texttt{SWP}] \hfill \\
+					Swap top two stack elements.
+						
+				\item [\texttt{CTM <addr>}] \hfill \\
+					Copy top stack element to <addr> in RAM.
+					
+				\item [\texttt{CFM}] \hfill \\
+					Copy element at <addr> in RAM to top of stack.		
+			\end{description}	
+		
+		\subsection{Logic Operations}
+			\begin{description}			
+				\item [\texttt{AND}] \hfill \\ <z> $=$ <x> $\wedge$ <y>
+				\item [\texttt{OOR}] \hfill \\ <z> $=$ <x> $\vee$ <y>
+				\item [\texttt{NOT}] \hfill \\ <z> $= \neg$ <x>  %Replace top element with its binary negation.
+			\end{description}	
+			LabCPU does not support logical shift operations.
+		
+		\subsection{Arithmetic}
+			\begin{description}			
+				\item [\texttt{ADD}] \hfill \\ <z> $=$ <x> $+$ <y>
+				\item [\texttt{SUB}] \hfill \\ <z> $=$ <x> $-$ <y>
+				\item [\texttt{MUL}] \hfill \\ <z> $=$ <x> $\times$ <y>
+				\item [\texttt{DIV}] \hfill \\ <z> $=$ <x> $\div$ <y>
+			\end{description}	
+		
+		\subsection{Jumps and Branches}
+			We can set a label by starting a line with a '.' immediatly followed by a unique label name. The '.' must be the first 
+			character starting a label line. Everything after that '.' will be taken as a label name.
+			If we jump to a label then we can't place anything after a label but whitespaces.
+				\begin{quote}
+					\texttt{\ldots} \\
+					\texttt{.label-name} \\
+					\texttt{\ldots} \\
+					\texttt{\textcolor{green}{;Don't comment the JMP line!}} \\
+					\texttt{\textcolor{blue}{JMP} label-name} \\
+				\end{quote}
+			We can jump back to the next line followed by the label line. The jump and brach operations take as an argument the 
+			name of the label -- without the '.' -- we want to jump to.
+			
+			\begin{description}
+				\item [\texttt{JMP <label>}] \hfill \\ Unconditionally jump to position <label> + 1.
+				\item [\texttt{BEQ <label>}] \hfill \\ <x> $=$    <y>, jump to <label> + 1.
+				\item [\texttt{BLE <label>}] \hfill \\ <x> $\leq$ <y>, jump to <label> + 1.
+				\item [\texttt{BGE <label>}] \hfill \\ <x> $\geq$ <y>, jump to <label> + 1.
+				\item [\texttt{BLT <label>}] \hfill \\ <x> $<$    <y>, jump to <label> + 1.
+				\item [\texttt{BGT <label>}] \hfill \\ <x> $>$    <y>, jump to <label> + 1.
+				\item [\texttt{BNE <label>}] \hfill \\ <x> $\neq$ <y>, jump to <label> + 1.
+			\end{description}	
+			
+			\begin{description}
+				\item [\texttt{CAL <label>}] \hfill \\ Unconditionally jump to position <label> + 1 and put the current 
+					address + 1 onto the stack.
+				\item [\texttt{RET}] \hfill \\ Unconditionally jump to the position stored as top stack element.
+			\end{description}				
+				\begin{quote}
+					\texttt{\ldots} \\
+					\texttt{\textcolor{blue}{CAL} sub \textcolor{green}{;Save return address and jump}} \\
+					\texttt{\textcolor{green}{;Next instruction to be executed after return}} \\
+					\texttt{\ldots} \\
+					\texttt{.sub} \\
+					\texttt{\textcolor{green}{;Subprogramm}} \\
+					\texttt{\textcolor{blue}{RET} \textcolor{green}{;Return to address stored on top of stack}} \\
+					\texttt{\ldots} \\
+				\end{quote}
+	
+			
+		\subsection{Miscellaneous}
+			\begin{description}			
+				\item [\texttt{WDP <0|1>}]	\hfill \\
+					Set display pixel at row <x> and column <y> either <1> or <0>. \\
+				
+				\item [\texttt{RDP}]	\hfill \\
+					Read display pixel at row <x> and column <y>. \\
+				
+				\item [\texttt{SLP <num>}]	\hfill \\
+					Sleep for <num> milliseconds. Every other operation sleeps for 1 ms.
+					
+				\item [\texttt{HLT}]	\hfill \\
+					Halts the CPU and must be the last command in a source file, because the symbol search routine stopps with 
+					the first occurence of a \texttt{HLT}. We recommend a jump to this last symbol after the program finished
+					execution.
+						\begin{quote}
+							\texttt{\ldots} \\
+							\texttt{\textcolor{green}{;Program done, jump to HLT}} \\
+							\texttt{\textcolor{blue}{JMP} hlt} \\
+							\texttt{\ldots} \\
+							\texttt{.hlt} \\
+							\texttt{\textcolor{blue}{HLT}}						
+						\end{quote}
+						
+			\end{description}
+				
+	\section{Source File Guidelines}
+		Comments do not need a special start character. However we recommend a ';' to avoid coplications with comments starting 
+		with an operator mnemonic, since these would be executed. Don't comment Jump and Branch operations since their label 
+		would not only consist of the original label name but the comment as well. The same holds for label lines.
+			\begin{quote}
+				\texttt{\textcolor{green}{;Example Programm Description}} \\
+				\texttt{\textcolor{blue}{HLT}}						
+			\end{quote}	
+			
+	\section{Examples}
+\end{document}
