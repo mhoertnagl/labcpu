@@ -1,4 +1,4 @@
 # labcpu
 A Simple Stack-based LabView CPU
 
-See doc for some info.
+See folder doc for some info.
